@@ -42,3 +42,10 @@ test('reverse mode', () => {
   assertApprox(-0.36, gradients.x1);
   assertApprox(-0.12, gradients.x2);
 })
+
+test('reverse mode - f(x) = x edge case', () => {
+  const x = op.variable("x");
+  const [value, gradients] = evalReverse(x, { x: 42 });
+  assertApprox(42, value);
+  assertApprox(1, gradients.x);
+})

@@ -101,15 +101,6 @@ export function evalReverse<Vars extends string>(
   }
   firstTraversal(op);
 
-  if (op.type === "var") {
-    return [
-      valueMemo.get(op)!,
-      {
-        [op.name]: 1,
-      } as InputVars<Vars>,
-    ];
-  }
-
   const result: Partial<Gradient<Vars>> = {};
 
   const backMemo: Map<Input<Vars>, number> = new Map();
