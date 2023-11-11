@@ -1,0 +1,16 @@
+{
+  "name": "auto-diff-ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "node --require @swc-node/register src/test.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@swc-node/register": "^1.6.8",
+    "@types/node": "^20.9.0",
+    "typescript": "^5.2.2"
+  }
+}
