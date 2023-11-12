@@ -4,27 +4,6 @@ export type InputVars<Vars extends string> = {
   [V in Vars]: number;
 };
 
-export function evalDfs<Vars extends string>(
-  op: Input<Vars>,
-  vars: InputVars<Vars>,
-  memo: Map<Input<Vars>, number> = new Map()
-): [number, Map<Input<Vars>, number>] {
-  if (memo.has(op)) {
-    return [memo.get(op)!, memo];
-  } else if (op.type === "var") {
-    console.log(`${op.name}: ${vars[op.name]}`);
-    const result = vars[op.name];
-    memo.set(op, result);
-    return [result, memo];
-  } else {
-    const inputs = op.inputs.map((i) => evalDfs(i, vars, memo)[0]);
-    const result = op.value(inputs);
-    console.log(`${op.name}: ${result}`);
-    memo.set(op, result);
-    return [result, memo];
-  }
-}
-
 export type Value = {
   x: number;
   dx: number;
@@ -33,30 +12,31 @@ export type Value = {
 export function evalForward<Vars extends string>(
   op: Input<Vars>,
   wrt: Vars,
-  vars: InputVars<Vars>,
-  memo: Map<Input<Vars>, Value> = new Map()
-): [Value, Map<Input<Vars>, Value>] {
-  if (memo.has(op)) {
-    return [memo.get(op)!, memo];
-  } else if (op.type === "var") {
-    const x = vars[op.name];
-    const dx = op.name === wrt ? 1 : 0;
-    const result = { x, dx };
-    console.log(`${op.name}: ${JSON.stringify(result)}`);
-    memo.set(op, result);
-    return [result, memo];
-  } else {
-    const inputs = op.inputs.map((i) => evalForward(i, wrt, vars, memo)[0]);
-    const inputVals = inputs.map((i) => i.x);
-    const x = op.value(inputVals);
-    const dx = op
-      .deriv(inputVals)
-      .reduce((acc, n, idx) => acc + inputs[idx].dx * n, 0);
-    const result = { x, dx };
-    console.log(`${op.name}: ${JSON.stringify(result)}`);
-    memo.set(op, result);
-    return [result, memo];
+  vars: InputVars<Vars>
+): Value {
+  const memo: Map<Input<Vars>, Value> = new Map();
+  function visit(op: Input<Vars>): Value {
+    if (memo.has(op)) {
+      return memo.get(op)!;
+    } else if (op.type === "var") {
+      const x = vars[op.name];
+      const dx = op.name === wrt ? 1 : 0;
+      const result = { x, dx };
+      memo.set(op, result);
+      return result;
+    } else {
+      const inputs = op.inputs.map((i) => visit(i));
+      const inputVals = inputs.map((i) => i.x);
+      const x = op.value(inputVals);
+      const dx = op
+        .deriv(inputVals)
+        .reduce((acc, n, idx) => acc + inputs[idx].dx * n, 0);
+      const result = { x, dx };
+      memo.set(op, result);
+      return result;
+    }
   }
+  return visit(op);
 }
 
 export type Gradient<Vars extends string> = { [K in Vars]: number };
@@ -66,17 +46,11 @@ export function evalReverse<Vars extends string>(
   vars: InputVars<Vars>
 ): [number, Gradient<Vars>] {
   const valueMemo: Map<Input<Vars>, number> = new Map();
-  const deepestVisit: Map<Input<Vars>, number> = new Map();
-  let maxDepth = 0;
-  function firstTraversal(op: Input<Vars>, depth: number = 0): number {
-    if (maxDepth < depth) {
-      maxDepth = depth;
-    }
-    if (!deepestVisit.has(op)) {
-      deepestVisit.set(op, depth);
-    } else if (deepestVisit.get(op)! < depth) {
-      deepestVisit.set(op, depth);
-    }
+  const evalVisits: Map<Input<Vars>, number> = new Map();
+  function evaluate(op: Input<Vars>): number {
+    const visits = (evalVisits.get(op) ?? 0) + 1;
+    evalVisits.set(op, visits);
+
     if (valueMemo.has(op)) {
       return valueMemo.get(op)!;
     } else if (op.type === "var") {
@@ -84,44 +58,45 @@ export function evalReverse<Vars extends string>(
       valueMemo.set(op, result);
       return result;
     } else {
-      const inputs = op.inputs.map((i) => firstTraversal(i, depth + 1));
+      const inputs = op.inputs.map((i) => {
+        return evaluate(i);
+      });
       const result = op.value(inputs);
       valueMemo.set(op, result);
       return result;
     }
   }
-  firstTraversal(op);
+  evaluate(op);
 
-  const result: Partial<Gradient<Vars>> = {};
+  const evalResult = valueMemo.get(op)!;
+  const gradients: Partial<Gradient<Vars>> = {};
 
-  const backMemo: Map<Input<Vars>, number> = new Map();
-  backMemo.set(op, 1);
-  let bfs: Input<Vars>[] = [op];
-  for (let depth = 0; depth <= maxDepth; depth++) {
-    let nextBfs: Input<Vars>[] = [];
-    for (let i = 0; i < bfs.length; i++) {
-      const o = bfs[i];
-      if (o.type === "var") {
-        result[o.name] = backMemo.get(o)!;
-        continue;
-      }
-      const inputs = o.inputs.map((i) => valueMemo.get(i)!);
-      const derivs = o.deriv(inputs);
-      const u = backMemo.get(o)!;
-      for (let j = 0; j < o.inputs.length; j++) {
-        const input = o.inputs[j];
-        const cur = backMemo.get(input) ?? 0;
-        const dx = u * derivs[j];
-        console.log(input.name, dx);
-        backMemo.set(input, cur + dx);
+  const backpropMemo: Map<Input<Vars>, number> = new Map();
+  const backpropVisits: Map<Input<Vars>, number> = new Map();
+  backpropMemo.set(op, 1);
 
-        if (deepestVisit.get(input)! === depth + 1) {
-          nextBfs.push(input);
-        }
-      }
+  function backprop(op: Input<Vars>) {
+    const visits = (backpropVisits.get(op) ?? 0) + 1;
+    backpropVisits.set(op, visits);
+
+    if (visits < evalVisits.get(op)!) {
+      return;
+    } else if (op.type === 'var') {
+      gradients[op.name] = backpropMemo.get(op);
+      return;
     }
-    bfs = nextBfs;
-  }
 
-  return [valueMemo.get(op)!, result as Gradient<Vars>];
+    const inputs = op.inputs.map((input) => valueMemo.get(input)!);
+    const derivs = op.deriv(inputs);
+    const ubar = backpropMemo.get(op)!;
+    op.inputs.forEach((input, idx) => {
+      const current = backpropMemo.get(input) ?? 0;
+      const dx = ubar * derivs[idx];
+      backpropMemo.set(input, current + dx);
+      backprop(input);
+    });
+  }
+  backprop(op);
+
+  return [evalResult, gradients as Gradient<Vars>];
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { test } from 'node:test';
 
 import * as op from './operations';
-import { evalDfs, evalForward, evalReverse } from './eval';
+import { evalForward, evalReverse } from './eval';
 
 const x1 = op.variable("x1");
 const x2 = op.variable("x2");
@@ -21,17 +21,12 @@ function assertApprox(expected: number, actual: number, epsilon: number = 0.003)
   assert(diff <= epsilon, `Expected ${actual} to be approximately ${expected}`);
 }
 
-test('simple evaluation', () => {
-  const [result] = evalDfs(f, { x1: 2, x2: 0.5 });
-  assertApprox(0.24, result);
-})
-
 test('forward mode', () => {
-  const [result] = evalForward(f, "x1", { x1: 2, x2: 0.5 });
+  const result = evalForward(f, "x1", { x1: 2, x2: 0.5 });
   assertApprox(0.24, result.x);
   assertApprox(-0.36, result.dx);
 
-  const [result2] = evalForward(f, "x2", { x1: 2, x2: 0.5 });
+  const result2 = evalForward(f, "x2", { x1: 2, x2: 0.5 });
   assertApprox(0.24, result2.x);
   assertApprox(-0.12, result2.dx);
 })
