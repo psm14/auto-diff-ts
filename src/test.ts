@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { test } from 'node:test';
 
 import * as op from './operations';
+import { gradientDescent } from './optim';
 import { evalForward, evalReverse } from './eval';
 
 const x1 = op.variable("x1");
@@ -43,4 +44,26 @@ test('reverse mode - f(x) = x edge case', () => {
   const [value, gradients] = evalReverse(x, { x: 42 });
   assertApprox(42, value);
   assertApprox(1, gradients.x);
+})
+
+test('gradient descent', () => {
+  // x^2 + (y+2)^2 + (z-10)^2
+  const x = op.variable("x");
+  const xsq = op.constpow(x, 2);
+  const y = op.variable("y");
+  const yp2 = op.constadd(2, y);
+  const ysq = op.constpow(yp2, 2);
+  const z = op.variable("z");
+  const zm10 = op.constadd(-10, z);
+  const zsq = op.constpow(zm10, 2);
+  const xpy = op.add(xsq, ysq);
+  const g = op.add(xpy, zsq);
+
+  const result = gradientDescent(g, { x: 10, y: -5, z: 10 }, 0.001, 10000);
+  assertApprox(0, result.x);
+  assertApprox(-2, result.y);
+  assertApprox(10, result.z);
+
+  const [newLoss] = evalReverse(xsq, result);
+  assertApprox(0, newLoss);
 })
