@@ -1,4 +1,4 @@
-import type { Input } from './operations';
+import type { Input } from "./operations";
 
 export type InputVars<Vars extends string> = {
   [V in Vars]: number;
@@ -66,7 +66,6 @@ export function evalReverse<Vars extends string>(
   vars: InputVars<Vars>
 ): [number, Gradient<Vars>] {
   const valueMemo: Map<Input<Vars>, number> = new Map();
-  const visitorMap: Map<Input<Vars>, Set<Input<Vars>>> = new Map();
   const deepestVisit: Map<Input<Vars>, number> = new Map();
   let maxDepth = 0;
   function firstTraversal(op: Input<Vars>, depth: number = 0): number {
@@ -85,15 +84,7 @@ export function evalReverse<Vars extends string>(
       valueMemo.set(op, result);
       return result;
     } else {
-      const inputs = op.inputs.map((i) => {
-        if (!visitorMap.has(i)) {
-          const initialVisitor = new Set([op]);
-          visitorMap.set(i, initialVisitor);
-        } else {
-          visitorMap.get(i)!.add(op);
-        }
-        return firstTraversal(i, depth + 1);
-      });
+      const inputs = op.inputs.map((i) => firstTraversal(i, depth + 1));
       const result = op.value(inputs);
       valueMemo.set(op, result);
       return result;
