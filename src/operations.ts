@@ -1,16 +1,38 @@
-export type Variable<Name extends string> = {
+export type VariableLens<T> = {
+  init(): T;
+  get(variable: T): number;
+  set(variable: T, value: number): T;
+}
+
+const scalarLens: VariableLens<number> = {
+  get(variable: number): number {
+    return variable;
+  },
+  init() {
+    return 0;
+  },
+  set(_variable: number, value: number) {
+    return value;
+  }
+}
+
+export type Variable<Param extends {}> = {
   type: "var";
-  name: Name;
+  name: keyof Param & string;
+  lens: VariableLens<Param[keyof Param & string]>;
 };
 
-export function variable<Name extends string>(name: Name): Variable<Name> {
+export type AnyVariables = Record<string, any>;
+
+export function scalar<Name extends string>(name: Name): Variable<{ [N in Name]: number }> {
   return {
     type: "var",
     name,
+    lens: scalarLens,
   };
 }
 
-export type Op<Vars extends string> = {
+export type Op<Vars extends AnyVariables> = {
   type: "op";
   name: string;
   inputs: Input<Vars>[];
@@ -18,12 +40,12 @@ export type Op<Vars extends string> = {
   deriv(inputs: number[]): number[];
 }
 
-export type Input<Vars extends string> = { type: "var"; name: Vars } | Op<Vars>;
+export type Input<Vars extends AnyVariables> = Variable<Vars> | Op<Vars>;
 
-export function add<X extends string, Y extends string>(
+export function add<X extends AnyVariables, Y extends AnyVariables>(
   a: Input<X>,
   b: Input<Y>
-): Op<X | Y> {
+): Op<X & Y> {
   return {
     type: "op",
     name: `(${a.name} + ${b.name})`,
@@ -33,7 +55,7 @@ export function add<X extends string, Y extends string>(
   };
 }
 
-export function constadd<X extends string>(k: number, a: Input<X>): Op<X> {
+export function constadd<X extends AnyVariables>(k: number, a: Input<X>): Op<X> {
   return {
     type: "op",
     name: `(${a.name} + ${k})`,
@@ -43,10 +65,10 @@ export function constadd<X extends string>(k: number, a: Input<X>): Op<X> {
   };
 }
 
-export function mult<X extends string, Y extends string>(
+export function mult<X extends AnyVariables, Y extends AnyVariables>(
   a: Input<X>,
   b: Input<Y>
-): Op<X | Y> {
+): Op<X & Y> {
   return {
     type: "op",
     name: `(${a.name} * ${b.name})`,
@@ -56,7 +78,7 @@ export function mult<X extends string, Y extends string>(
   };
 }
 
-export function constmult<X extends string>(k: number, a: Input<X>): Op<X> {
+export function constmult<X extends AnyVariables>(k: number, a: Input<X>): Op<X> {
   return {
     type: "op",
     name: `${k}${a.name}`,
@@ -66,10 +88,10 @@ export function constmult<X extends string>(k: number, a: Input<X>): Op<X> {
   };
 }
 
-export function div<X extends string, Y extends string>(
+export function div<X extends AnyVariables, Y extends AnyVariables>(
   a: Input<X>,
   b: Input<Y>
-): Op<X | Y> {
+): Op<X & Y> {
   return {
     type: "op",
     name: `(${a.name} / ${b.name})`,
@@ -79,7 +101,7 @@ export function div<X extends string, Y extends string>(
   };
 }
 
-export function constdiv<X extends string>(k: number, a: Input<X>): Op<X> {
+export function constdiv<X extends AnyVariables>(k: number, a: Input<X>): Op<X> {
   return {
     type: "op",
     name: ` ${k} / ${a.name}`,
@@ -89,7 +111,7 @@ export function constdiv<X extends string>(k: number, a: Input<X>): Op<X> {
   };
 }
 
-export function constpow<X extends string>(a: Input<X>, k: number): Op<X> {
+export function constpow<X extends AnyVariables>(a: Input<X>, k: number): Op<X> {
   return {
     type: "op",
     name: `${a.name}^${k}`,
@@ -99,7 +121,7 @@ export function constpow<X extends string>(a: Input<X>, k: number): Op<X> {
   };
 }
 
-export function exp<X extends string>(a: Input<X>): Op<X> {
+export function exp<X extends AnyVariables>(a: Input<X>): Op<X> {
   return {
     type: "op",
     name: `e^${a.name}`,

@@ -1,25 +1,22 @@
-import type { Input } from "./operations";
-
-export type InputVars<Vars extends string> = {
-  [V in Vars]: number;
-};
+import type { AnyVariables, Input } from "./operations";
 
 export type Value = {
   x: number;
   dx: number;
 };
 
-export function evalForward<Vars extends string>(
-  op: Input<Vars>,
-  wrt: Vars,
-  vars: InputVars<Vars>
+export function evalForward<In extends AnyVariables>(
+  op: Input<In>,
+  wrt: keyof In,
+  vars: In
 ): Value {
-  const memo: Map<Input<Vars>, Value> = new Map();
-  function visit(op: Input<Vars>): Value {
+  const memo: Map<Input<In>, Value> = new Map();
+  function visit(op: Input<In>): Value {
     if (memo.has(op)) {
       return memo.get(op)!;
     } else if (op.type === "var") {
-      const x = vars[op.name];
+      const variable = vars[op.name];
+      const x = op.lens.get(variable);
       const dx = op.name === wrt ? 1 : 0;
       const result = { x, dx };
       memo.set(op, result);
@@ -39,12 +36,13 @@ export function evalForward<Vars extends string>(
   return visit(op);
 }
 
-export type Gradient<Vars extends string> = { [K in Vars]: number };
+export type UpdateFn = (loss: number, input: number, gradient: number) => number;
 
-export function evalReverse<Vars extends string>(
+export function evalReverse<Vars extends AnyVariables>(
   op: Input<Vars>,
-  vars: InputVars<Vars>
-): [number, Gradient<Vars>] {
+  vars: Vars,
+  update?: UpdateFn,
+): [number, Vars] {
   const valueMemo: Map<Input<Vars>, number> = new Map();
   const evalVisits: Map<Input<Vars>, number> = new Map();
   function evaluate(op: Input<Vars>): number {
@@ -69,7 +67,7 @@ export function evalReverse<Vars extends string>(
   evaluate(op);
 
   const evalResult = valueMemo.get(op)!;
-  const gradients: Partial<Gradient<Vars>> = {};
+  const gradients: Partial<Vars> = {};
 
   const backpropMemo: Map<Input<Vars>, number> = new Map();
   const backpropVisits: Map<Input<Vars>, number> = new Map();
@@ -82,7 +80,15 @@ export function evalReverse<Vars extends string>(
     if (visits < evalVisits.get(op)!) {
       return;
     } else if (op.type === 'var') {
-      gradients[op.name] = backpropMemo.get(op);
+      const gradient = backpropMemo.get(op)!;
+      const current = gradients[op.name] ?? op.lens.init();
+      gradients[op.name] = op.lens.set(current, gradient);
+
+      if (update !== undefined) {
+        const input = valueMemo.get(op)!;
+        const newValue = update(evalResult, input, gradient);
+        vars[op.name] = op.lens.set(vars[op.name], newValue);
+      }
       return;
     }
 
@@ -98,5 +104,5 @@ export function evalReverse<Vars extends string>(
   }
   backprop(op);
 
-  return [evalResult, gradients as Gradient<Vars>];
+  return [evalResult, gradients as Vars];
 }

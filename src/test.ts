@@ -5,8 +5,8 @@ import * as op from './operations';
 import { gradientDescent } from './optim';
 import { evalForward, evalReverse } from './eval';
 
-const x1 = op.variable("x1");
-const x2 = op.variable("x2");
+const x1 = op.scalar("x1");
+const x2 = op.scalar("x2");
 
 const x1sq = op.constpow(x1, 2);
 const x2sq = op.constpow(x2, 2);
@@ -40,7 +40,7 @@ test('reverse mode', () => {
 })
 
 test('reverse mode - f(x) = x edge case', () => {
-  const x = op.variable("x");
+  const x = op.scalar("x");
   const [value, gradients] = evalReverse(x, { x: 42 });
   assertApprox(42, value);
   assertApprox(1, gradients.x);
@@ -48,12 +48,12 @@ test('reverse mode - f(x) = x edge case', () => {
 
 test('gradient descent', () => {
   // x^2 + (y+2)^2 + (z-10)^2
-  const x = op.variable("x");
+  const x = op.scalar("x");
   const xsq = op.constpow(x, 2);
-  const y = op.variable("y");
+  const y = op.scalar("y");
   const yp2 = op.constadd(2, y);
   const ysq = op.constpow(yp2, 2);
-  const z = op.variable("z");
+  const z = op.scalar("z");
   const zm10 = op.constadd(-10, z);
   const zsq = op.constpow(zm10, 2);
   const xpy = op.add(xsq, ysq);

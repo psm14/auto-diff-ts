@@ -1,18 +1,15 @@
-import { evalReverse, type InputVars } from "./eval";
-import type { Input } from "./operations";
+import { evalReverse } from "./eval";
+import type { AnyVariables, Input } from "./operations";
 
-export function gradientDescent<Vars extends string>(
+export function gradientDescent<Vars extends AnyVariables>(
   op: Input<Vars>,
-  vars: InputVars<Vars>,
+  vars: Vars,
   learningRate: number,
   iterations: number
-): InputVars<Vars> {
-  let input: InputVars<Vars> = { ...vars };
+): Vars {
+  let input: Vars = { ...vars };
   for (let i = 0; i < iterations; i++) {
-    const [_loss, gradient] = evalReverse(op, input);
-    for (const v of Object.keys(input)) {
-      input[v] -= learningRate * gradient[v];
-    }
+    evalReverse(op, input, (_loss, input, gradient) => input - learningRate * gradient);
   }
   return input;
 }
