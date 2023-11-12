@@ -7,7 +7,7 @@ export function gradientDescent<Vars extends string>(
   learningRate: number,
   iterations: number
 ): InputVars<Vars> {
-  let input: InputVars<Vars> = vars;
+  let input: InputVars<Vars> = { ...vars };
   for (let i = 0; i < iterations; i++) {
     const [_loss, gradient] = evalReverse(op, input);
     for (const v of Object.keys(input)) {
