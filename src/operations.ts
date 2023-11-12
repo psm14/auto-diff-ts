@@ -10,7 +10,7 @@ export function variable<Name extends string>(name: Name): Variable<Name> {
   };
 }
 
-export interface Op<Vars extends string> {
+export type Op<Vars extends string> = {
   type: "op";
   name: string;
   inputs: Input<Vars>[];
