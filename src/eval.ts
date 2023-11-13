@@ -52,7 +52,8 @@ export function evalReverse<Vars extends AnyVariables>(
     if (valueMemo.has(op)) {
       return valueMemo.get(op)!;
     } else if (op.type === "var") {
-      const result = vars[op.name];
+      const resultVar = vars[op.name];
+      const result = op.lens.get(resultVar);
       valueMemo.set(op, result);
       return result;
     } else {
