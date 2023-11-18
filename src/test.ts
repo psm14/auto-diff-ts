@@ -74,24 +74,35 @@ test("gradient descent", () => {
 
 // TODO: Actually test this
 test("matrices", () => {
-  const x = op.matrix("x");
-  const y = op.matrix("y");
+  const w = op.matrix("w", 2, 4);
+  const x = op.matrix("x", 4, 2);
+  const y = op.matrix("y", 1, 4);
+  const z = op.matrix("z", 4, 1);
 
-  const xy = op.matmul(x, y);
-  const det = op.determinant(xy);
+  // 4x4
+  const wx = op.matmul(w, x);
+  // 4x1
+  const wxy = op.matmul(wx, y);
+  // 1x1
+  const f = op.matmul(z, wxy);
 
-  const [result, gradient] = evalReverse(det, {
-    x: [1, 2, 3, 4],
-    y: [9, 8, 7, 6],
+  const [result, gradient] = evalReverse(f.params[0], {
+    w: [[1,2],[3,4],[5,6],[7,8]],
+    x: [[9,8,7,6],[5,4,3,2]],
+    y: [[1],[2],[3],[4]],
+    z: [[9,8,7,6]],
   });
 
   console.log(result, gradient);
 
-  const detsq = op.constpow(det, 2);
-  const optim = gradientDescent(detsq, {
-    x: [1, 2, 3, 4],
-    y: [9, 8, 7, 6],
-  }, 0.001, 100);
+  const fsq = op.mult(f.params[0], f.params[0]);
+
+  const optim = gradientDescent(fsq, {
+    w: [[1,2],[3,-4],[5,6],[7,8]],
+    x: [[-9,8,7,6],[5,4,3,2]],
+    y: [[1],[2],[-3],[4]],
+    z: [[9,8,7,6]],
+  }, 0.000001, 2);
 
   console.log(optim);
 });

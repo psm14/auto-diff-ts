@@ -145,28 +145,33 @@ export function exp<X extends AnyVariables>(a: Input<X>): Op<X> {
   };
 }
 
-export type Matrix = [number, number, number, number];
-export type MatrixVar<Name extends string> = Variable<{ [N in Name]: Matrix }>;
-export type MatrixVars<Vars extends AnyVariables> = [
-  Input<Vars>,
-  Input<Vars>,
-  Input<Vars>,
-  Input<Vars>
-];
+//export type Matrix = number[][];
+export type MatrixVar<Name extends string> = Variable<{ [N in Name]: number[][] }>;
+export type MatrixVars<Vars extends AnyVariables> = {
+  width: number;
+  height: number;
+  params: Input<Vars>[];
+};
 
 export function matrix<Name extends string>(
-  name: Name
-): MatrixVars<{ [N in Name]: Matrix }> {
-  function matrixVar(idx: number): MatrixVar<Name> {
-    const lens: VariableLens<Matrix> = {
+  name: Name,
+  width: number,
+  height: number
+): MatrixVars<{ [N in Name]: number[][] }> {
+  function matrixVar(x: number, y: number): MatrixVar<Name> {
+    const lens: VariableLens<number[][]> = {
       init() {
-        return [0, 0, 0, 0];
+        const result: number[][] = [];
+        for (let i = 0; i < height; i++) {
+          result.push(new Array(width).fill(0));
+        }
+        return result;
       },
-      get(variable: Matrix): number {
-        return variable[idx];
+      get(variable: number[][]): number {
+        return variable[y][x];
       },
-      set(variable: Matrix, value: number): Matrix {
-        variable[idx] = value;
+      set(variable: number[][], value: number): number[][] {
+        variable[y][x] = value;
         return variable;
       },
     };
@@ -178,29 +183,45 @@ export function matrix<Name extends string>(
     };
   }
 
-  return [matrixVar(0), matrixVar(1), matrixVar(2), matrixVar(3)];
+  const params: Input<{ [N in Name]: number[][] }>[] = [];
+  for (let i = 0; i < width; i++) {
+    for (let j = 0; j < height; j++) {
+      params.push(matrixVar(i, j));
+    }
+  }
+  return {
+    width,
+    height,
+    params,
+  };
 }
 
 export function matmul<X extends AnyVariables, Y extends AnyVariables>(
-  [a, b, c, d]: MatrixVars<X>,
-  [w, x, y, z]: MatrixVars<Y>
+  a: MatrixVars<X>,
+  b: MatrixVars<Y>
 ): MatrixVars<X & Y> {
-  const p = add(mult(a, w), mult(b, y));
-  const q = add(mult(a, x), mult(b, z));
-  const r = add(mult(c, w), mult(d, y));
-  const s = add(mult(c, x), mult(d, z));
+  if (a.width !== b.height) {
+    throw new Error(`Cannot multiply a ${a.width}x${a.height} matrix with a ${b.width}x${b.height} one`);
+  }
 
-  return [p, q, r, s];
-}
+  function deref<T extends AnyVariables>(m: MatrixVars<T>, x: number, y: number): Input<T> {
+    return m.params[(y * m.width) + x];
+  }
 
-export function determinant<X extends AnyVariables>([
-  a,
-  b,
-  c,
-  d,
-]: MatrixVars<X>): Op<X> {
-  const ad = mult(a, d);
-  const bc = mult(b, c);
-  const negbc = constmult(-1, bc);
-  return add(ad, negbc);
+  const result: Input<X & Y>[] = [];
+  for (let aRow = 0; aRow < a.height; aRow++) {
+    for (let bCol = 0; bCol < b.width; bCol++) {
+      let param: Input<X & Y> = mult(deref(a, 0, aRow), deref(b, bCol, 0));
+      for (let i = 1; i < a.width; i++) {
+        param = add(param, mult(deref(a, i, aRow), deref(b, bCol, i)));
+      }
+      result.push(param);
+    }
+  }
+
+  return {
+    width: b.width,
+    height: a.height,
+    params: result,
+  }
 }
